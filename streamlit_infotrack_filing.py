@@ -82,8 +82,12 @@ async def get_token(username, password, clientid, clientsecret):
 # Function to handle InfoTrack login
 def login_infotrack(username, password, clientid, clientsecret):
     headers = asyncio.run(get_token(username, password, clientid, clientsecret))
-    st.success("Login Successful.")
-    return headers
+    if headers:
+        st.success("Login Successful.")
+        return headers
+    else:
+        st.error("Login failed. Please try entering your username and password again.")
+        quit()
 
 # Function to upload a file
 def upload_file():
@@ -140,6 +144,8 @@ async def retrieve_case_tracking_id(clientref, session, headers):
     async with session.post('https://search.infotrack.com/secure/api/courtfilingla/court/cases', headers=headers,
                             data=data, ssl=ssl_context) as response:
         search = await response.json(content_type=None)
+        if not search["ExistingCases"]:
+            return "no case", "no case"
         caseid = search["ExistingCases"][0]["CaseTrackingId"]
         casenum = search["ExistingCases"][0]["CaseNumber"]
         return caseid, casenum
@@ -160,6 +166,8 @@ async def scrape_case_info(mapping_url, clientref, session, headers):
     if result == 'fail':
         return 'fail', 'fail', 'fail'
     case_id, case_num = await retrieve_case_tracking_id(clientref, session, headers)
+    if case_id == 'no case':
+        return 'no case', 'no case', 'no case'
     case_info = await open_case(case_id, case_num, session, headers)
     return case_id, case_num, case_info
 
@@ -173,6 +181,13 @@ async def search_case_number(fileids, headers):
         mapping_url = await mapping(lawyerdetail, courtdetails, lawyers, clientref, retailref, fileids, headers, session)
         st.session_state.mapping_url = mapping_url
         casenum, caseid, case_info = await scrape_case_info(mapping_url, clientref, session, headers)
+        if casenum == 'fail':
+            st.error("Couldn't login to eFile CA. Please login to OneLegal and then go here:  \n https://platform.onelegal.com/AddEfm"
+                     "  \n and make sure that your account is connected to eFile CA.")
+            quit()
+        if caseid == 'no case':
+            st.error("No case was found. Make sure the case number is entered correctly. If it was, the site may just be down. Try again later.")
+            quit()
     st.session_state.one_legal_case_info["CaseNumber"] = casenum
     st.session_state.one_legal_case_info["TrackingID"] = caseid
     st.session_state.one_legal_case_info["CourtName"] = case_info["LaExistingCaseModel"]["CourtName"]
