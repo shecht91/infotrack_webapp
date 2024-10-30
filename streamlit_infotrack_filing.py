@@ -157,6 +157,8 @@ async def open_case(caseid, casenum, session, headers):
         testopen_case = await response.text()
         take_json_case_info = regex.search(r'\{"TylerExistingCaseModel":.*,"OneLegalExistingCaseModel":null,',
                                            str(testopen_case))
+        if not take_json_case_info:
+            return "no case"
         json_case_info = take_json_case_info.group().replace(',"OneLegalExistingCaseModel":null,', '}')
         case_info = json.loads(json_case_info)
         return case_info
@@ -185,7 +187,7 @@ async def search_case_number(fileids, headers):
             st.error("Couldn't login to eFile CA. Please login to OneLegal and then go here:  \n https://platform.onelegal.com/AddEfm"
                      "  \n and make sure that your account is connected to eFile CA.")
             quit()
-        if caseid == 'no case':
+        if caseid == 'no case' or case_info == 'no case':
             st.error("No case was found. Make sure the case number is entered correctly. If it was, the site may just be down. Try again later.")
             quit()
     st.session_state.one_legal_case_info["CaseNumber"] = casenum
