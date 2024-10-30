@@ -74,15 +74,17 @@ async def get_token(username, password, clientid, clientsecret):
         async with session.post('https://auth.infotrack.com/connect/token', auth=auth,
                                headers={"Content-Type": "application/x-www-form-urlencoded"}, data=data, ssl=ssl_context) as response:
             data2 = await response.json(content_type=None)
-            access_token = data2['access_token']
-            if access_token:
+            if "access_token" not in data2:
+                return "bad_login"
+            else:
+                access_token = data2['access_token']
                 headers = {"Authorization": f"Bearer {access_token}"}
                 return headers
 
 # Function to handle InfoTrack login
 def login_infotrack(username, password, clientid, clientsecret):
     headers = asyncio.run(get_token(username, password, clientid, clientsecret))
-    if headers:
+    if headers != "bad_login":
         st.success("Login Successful.")
         return headers
     else:
@@ -144,7 +146,7 @@ async def retrieve_case_tracking_id(clientref, session, headers):
     async with session.post('https://search.infotrack.com/secure/api/courtfilingla/court/cases', headers=headers,
                             data=data, ssl=ssl_context) as response:
         search = await response.json(content_type=None)
-        if not search["ExistingCases"]:
+        if "ExistingCases" not in search or not search["ExistingCases"]:
             return "no case", "no case"
         caseid = search["ExistingCases"][0]["CaseTrackingId"]
         casenum = search["ExistingCases"][0]["CaseNumber"]
