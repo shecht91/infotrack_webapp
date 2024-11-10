@@ -1,4 +1,5 @@
-requests~=2.32.3
-aiohttp~=3.10.10
-certifi~=2024.8.30
-regex~=2024.9.11
+requests
+aiohttp
+certifi
+regex
+streamlit
