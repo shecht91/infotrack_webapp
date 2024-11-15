@@ -22,7 +22,7 @@ if "one_legal_case_info" not in st.session_state:
         "Plaintiff": {
             "FullName": "",
             "Status": "",
-            "PartyId": "",
+            "PartyId": [],
             "OrganizationName": "",
             "FirstName": "",
             "LastName": "",
@@ -37,6 +37,7 @@ if "one_legal_case_info" not in st.session_state:
             "EmailAddress": ""
         },
         "Defendants": [],
+        "Plaintiffs": [],
         "Attorneys": [],
         "Judgment": ""
     }
@@ -197,20 +198,26 @@ async def search_case_number(fileids, headers):
     st.session_state.one_legal_case_info["CourtName"] = case_info["LaExistingCaseModel"]["CourtName"]
     st.session_state.one_legal_case_info["ComplaintID"] = case_info["LaExistingCaseModel"]["Complaints"][0]["Id"]
     Parties = case_info["LaExistingCaseModel"]["Complaints"][0]["ExistingParties"]
+    st.session_state.one_legal_case_info["CaseTitle"] = case_info["LaExistingCaseModel"]["CaseTitle"]
+    all_plaintiffs = st.session_state.one_legal_case_info["CaseTitle"].split(" vs ")[0]
     st.session_state.one_legal_case_info["ComplaintFiled"] = case_info["LaExistingCaseModel"]["Complaints"][0]["CaseTitle"].replace("Complaint", "").replace(
-            "filed by " + Parties[0]["FullName"] + " on ", "")
-    Plaintiff_Variables = ["FullName", "Status", "PartyId", "OrganizationName", "FirstName", "LastName", "MiddleName",
+            "filed by ", "").replace(" on ","").replace(all_plaintiffs, "").replace(Parties[0]["FullName"], "")
+    st.session_state.one_legal_case_info["Plaintiffs"].clear()
+    st.session_state.one_legal_case_info["Defendants"].clear()
+    Plaintiff_Variables = ["FullName", "Status", "OrganizationName", "FirstName", "LastName", "MiddleName",
                            "Address", "Address2", "City", "State", "PostalCode", "Country", "PhoneNumber",
                            "EmailAddress"]
-    for key in Plaintiff_Variables:
-        st.session_state.one_legal_case_info["Plaintiff"][key] = Parties[0][key]
-    st.session_state.one_legal_case_info["Defendants"].clear()
     Defendant_Variables = ["FullName", "Status", "HasFeeWaiver", "PartyId", "OrganizationName", "FirstName", "LastName",
                            "MiddleName", "Address", "Address2", "City", "State", "PostalCode", "Country", "PhoneNumber",
                            "EmailAddress"]
-    for i in range(1, len(Parties)):
-        Defendant = {key: Parties[i][key] for key in Defendant_Variables}
-        st.session_state.one_legal_case_info["Defendants"].append(Defendant)
+    for i in range(len(Parties)):
+        if Parties[i]["PartyTypeId"] != "PLAIN":
+            Defendant = {key: Parties[i][key] for key in Defendant_Variables}
+            st.session_state.one_legal_case_info["Defendants"].append(Defendant)
+        elif Parties[i]["PartyTypeId"] == "PLAIN":
+            Plaintiff = {key: Parties[i][key] for key in Plaintiff_Variables}
+            st.session_state.one_legal_case_info["Plaintiffs"].append(Plaintiff)
+            st.session_state.one_legal_case_info["Plaintiff"]["PartyId"].append(Parties[i]["PartyId"])
     Attorneys = case_info["LaExistingCaseModel"]["ExistingAttorneys"]
     Attorneys_Variables = ["BarNumber", "CorporateName", "FirstName", "LastName", "MiddleName", "Suffix", "Address",
                            "Address2", "City", "State", "PostalCode", "Country", "PostalBoxNumber", "PhoneNumber",
@@ -219,10 +226,11 @@ async def search_case_number(fileids, headers):
     for i in range(len(Attorneys)):
         Attorney = {key: Attorneys[i][key] for key in Attorneys_Variables}
         if Attorneys[i]["RepresentingPartiesIds"] != None:
-            if st.session_state.one_legal_case_info["Plaintiff"]["PartyId"] not in Attorneys[i]["RepresentingPartiesIds"]:
-                Attorney["Representing"] = "Defendant"
-            else:
+            if any(party_id in Attorneys[i]["RepresentingPartiesIds"] for party_id in
+                   st.session_state.one_legal_case_info["Plaintiff"]["PartyId"]):
                 Attorney["Representing"] = "Plaintiff"
+            else:
+                Attorney["Representing"] = "Defendant"
         else:
             Attorney["Representing"] = "Former Attorney"
         st.session_state.one_legal_case_info["Attorneys"].append(Attorney)
@@ -234,33 +242,31 @@ async def search_case_number(fileids, headers):
     complaint_filed_date_display = "** Complaint Filing Date **\n" + st.session_state.one_legal_case_info["ComplaintFiled"]
     st.markdown(complaint_filed_date_display)
     status_display = "** Status **\n"
-    for judgment in st.session_state.one_legal_case_info["Judgment"]:
-        status_display += f"{judgment}\n\n"
+    status_display += f"{st.session_state.one_legal_case_info["Judgment"]}\n\n"
     st.markdown(status_display)
     case_title_display = "** Case Title **\n" + st.session_state.one_legal_case_info["CaseTitle"]
     st.markdown(case_title_display)
     court_name_display = "** Court Name ** \n" + st.session_state.one_legal_case_info["CourtName"]
     st.markdown(court_name_display)
-
-    plaintiff_info = st.session_state.one_legal_case_info["Plaintiff"]
-    name = plaintiff_info["FullName"]
-    status = plaintiff_info["Status"]
-    address = plaintiff_info["Address"]
-    address2 = plaintiff_info["Address2"]
-    city = plaintiff_info["City"]
-    state = plaintiff_info["State"]
-    zipcode = plaintiff_info["PostalCode"]
-    phone = plaintiff_info["PhoneNumber"]
-    email = plaintiff_info["EmailAddress"]
-
     plaintiff_display = "**Plaintiff Details:**\n"
-    plaintiff_info = f"""
-    {name}, {status if status not in [None, 'None'] else ''}
-    {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
-    {city if city not in [None, 'None'] else ''}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
-    Phone: {phone} Email: {email}
-    """
-    plaintiff_display += plaintiff_info + "\n\n"
+
+    for plaintiff in st.session_state.one_legal_case_info["Plaintiffs"]:
+        name = plaintiff["FullName"] if plaintiff["FullName"] else plaintiff["OrganizationName"]
+        status = plaintiff["Status"]
+        address = plaintiff["Address"]
+        address2 = plaintiff["Address2"]
+        city = plaintiff["City"]
+        state = plaintiff["State"]
+        zipcode = plaintiff["PostalCode"]
+        phone = plaintiff["PhoneNumber"]
+        email = plaintiff["EmailAddress"]
+        plaintiff_info = f"""
+        {name}, {status if status not in [None, 'None'] else ''}
+        {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
+        {city if city not in [None, 'None'] else ''}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
+        Phone: {phone} Email: {email}
+        """
+        plaintiff_display += plaintiff_info + "\n\n"
 
     st.markdown(plaintiff_display)
 
@@ -269,7 +275,7 @@ async def search_case_number(fileids, headers):
     for defendant in st.session_state.one_legal_case_info["Defendants"]:
         name = defendant["FullName"]
         status = defendant["Status"]
-        fw = defendant.get("HasFeeWaiver", "No")
+        fw = defendant["HasFeeWaiver"]
         address = defendant["Address"]
         address2 = defendant["Address2"]
         city = defendant["City"]
@@ -309,8 +315,8 @@ async def search_case_number(fileids, headers):
         email = attorney["EmailAddress"]
 
         attorney_info = f"""
-        **{party} Attorney:**
-        {firm}
+        **{party}**
+        {firm if firm not in [None, 'None'] else ''}
         {first} {middle if middle not in [None, 'None'] else ''} {last} {suffix if suffix not in [None, 'None'] else ''}, SBN: {sbn}
         {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
         {city}, {state} {zipcode} {PO if PO not in [None, 'None'] else ''}
