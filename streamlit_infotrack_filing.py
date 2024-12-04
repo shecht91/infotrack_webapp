@@ -200,8 +200,8 @@ async def search_case_number(fileids, headers):
     Parties = case_info["LaExistingCaseModel"]["Complaints"][0]["ExistingParties"]
     st.session_state.one_legal_case_info["CaseTitle"] = case_info["LaExistingCaseModel"]["CaseTitle"]
     all_plaintiffs = st.session_state.one_legal_case_info["CaseTitle"].split(" vs ")[0]
-    st.session_state.one_legal_case_info["ComplaintFiled"] = case_info["LaExistingCaseModel"]["Complaints"][0]["CaseTitle"].replace("Complaint", "").replace(
-            "filed by ", "").replace(" on ","").replace(all_plaintiffs, "").replace(Parties[0]["FullName"], "")
+    st.session_state.one_legal_case_info["ComplaintFiled"] = regex.search(r'\d{1,2}\/\d{1,2}\/\d{2,4}',
+                 case_info["LaExistingCaseModel"]["Complaints"][0]["CaseTitle"]).group()
     st.session_state.one_legal_case_info["Plaintiffs"].clear()
     st.session_state.one_legal_case_info["Defendants"].clear()
     Plaintiff_Variables = ["FullName", "Status", "OrganizationName", "FirstName", "LastName", "MiddleName",
@@ -239,15 +239,15 @@ async def search_case_number(fileids, headers):
         st.session_state.one_legal_case_info["Judgment"] = case_info["LaExistingCaseModel"]["CaseJudgments"][0]["JudgmentTitle"]
     except:
         st.session_state.one_legal_case_info["Judgment"] = case_info["LaExistingCaseModel"]["CaseJudgments"]
-    complaint_filed_date_display = "** Complaint Filing Date **\n" + st.session_state.one_legal_case_info["ComplaintFiled"]
+    case_title_display = "**Case Title:**\n" + st.session_state.one_legal_case_info["CaseTitle"]
+    st.markdown(case_title_display)
+    court_name_display = "**Court Name:**\n" + st.session_state.one_legal_case_info["CourtName"]
+    st.markdown(court_name_display)
+    complaint_filed_date_display = "**Complaint Filing Date:**\n" + st.session_state.one_legal_case_info["ComplaintFiled"]
     st.markdown(complaint_filed_date_display)
-    status_display = "** Status **\n"
+    status_display = "**Status:**\n"
     status_display += f"{st.session_state.one_legal_case_info["Judgment"]}\n\n"
     st.markdown(status_display)
-    case_title_display = "** Case Title **\n" + st.session_state.one_legal_case_info["CaseTitle"]
-    st.markdown(case_title_display)
-    court_name_display = "** Court Name ** \n" + st.session_state.one_legal_case_info["CourtName"]
-    st.markdown(court_name_display)
     plaintiff_display = "**Plaintiff Details:**\n"
 
     for plaintiff in st.session_state.one_legal_case_info["Plaintiffs"]:
@@ -260,13 +260,19 @@ async def search_case_number(fileids, headers):
         zipcode = plaintiff["PostalCode"]
         phone = plaintiff["PhoneNumber"]
         email = plaintiff["EmailAddress"]
-        plaintiff_info = f"""
-        {name}, {status if status not in [None, 'None'] else ''}
-        {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
-        {city if city not in [None, 'None'] else ''}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
-        Phone: {phone} Email: {email}
-        """
-        plaintiff_display += plaintiff_info + "\n\n"
+        if address and city:
+            plaintiff_info = f"""
+    {name}, {status if status not in [None, 'None'] else ''}
+    {address} {address2 if address2 not in [None, 'None'] else ''}
+    {city}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
+    Phone: {phone} Email: {email}
+    """
+        else:
+            plaintiff_info = f"""
+    {name}, {status if status not in [None, 'None'] else ''}
+    Phone: {phone} Email: {email}
+    """
+        plaintiff_display += plaintiff_info + "\n"
 
     st.markdown(plaintiff_display)
 
@@ -284,14 +290,21 @@ async def search_case_number(fileids, headers):
         phone = defendant["PhoneNumber"]
         email = defendant["EmailAddress"]
 
-        defendant_info = f"""
-        {name}, Status: {status}
-        {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
-        {city if city not in [None, 'None'] else ''}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
-        Phone: {phone} Email: {email}
-        Fee Waiver: {fw}
-        """
-        defendant_display += defendant_info + "\n\n"
+        if address and city:
+            defendant_info = f"""
+    {name}, Status: {status}
+    {address} {address2 if address2 not in [None, 'None'] else ''}
+    {city}, {state if state not in [None, 'None'] else ''} {zipcode if zipcode not in [None, 'None'] else ''}
+    Phone: {phone} Email: {email}
+    Fee Waiver: {fw}
+    """
+        else:
+            defendant_info = f"""
+    {name}, Status: {status}
+    Phone: {phone} Email: {email}
+    Fee Waiver: {fw}
+    """
+        defendant_display += defendant_info + "\n"
 
     st.markdown(defendant_display)
 
@@ -313,16 +326,23 @@ async def search_case_number(fileids, headers):
         PO = attorney["PostalBoxNumber"]
         phone = attorney["PhoneNumber"]
         email = attorney["EmailAddress"]
-
-        attorney_info = f"""
-        **{party}**
-        {firm if firm not in [None, 'None'] else ''}
-        {first} {middle if middle not in [None, 'None'] else ''} {last} {suffix if suffix not in [None, 'None'] else ''}, SBN: {sbn}
-        {address if address not in [None, 'None'] else ''} {address2 if address2 not in [None, 'None'] else ''}
-        {city}, {state} {zipcode} {PO if PO not in [None, 'None'] else ''}
-        Phone: {phone} Email: {email}
-        """
-        attorney_display += attorney_info + "\n\n"
+        if address and city:
+            attorney_info = f"""
+    **{party}**
+    {firm}
+    {first} {middle if middle not in [None, 'None'] else ''} {last} {suffix if suffix not in [None, 'None'] else ''}, SBN: {sbn}
+    {address} {address2 if address2 not in [None, 'None'] else ''}
+    {city}, {state} {zipcode} {PO if PO not in [None, 'None'] else ''}
+    Phone: {phone} Email: {email}
+    """
+        else:
+            attorney_info = f"""
+    **{party}**
+    {firm}
+    {first} {middle if middle not in [None, 'None'] else ''} {last} {suffix if suffix not in [None, 'None'] else ''}, SBN: {sbn}
+    Phone: {phone} Email: {email}
+    """
+        attorney_display += attorney_info + "\n"
 
     st.markdown(attorney_display)
 
