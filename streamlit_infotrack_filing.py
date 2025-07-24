@@ -185,7 +185,7 @@ async def search_case_number(fileids, headers):
     async with aiohttp.ClientSession() as session:
         mapping_url = await mapping(lawyerdetail, courtdetails, lawyers, clientref, retailref, fileids, headers, session)
         st.session_state.mapping_url = mapping_url
-        casenum, caseid, case_info = await scrape_case_info(mapping_url, clientref, session, headers)
+        caseid, casenum, case_info = await scrape_case_info(mapping_url, clientref, session, headers)
         if casenum == 'fail':
             st.error("Couldn't login to eFile CA. Please login to OneLegal and then go here:  \n https://platform.onelegal.com/AddEfm"
                      "  \n and make sure that your account is connected to eFile CA.")
