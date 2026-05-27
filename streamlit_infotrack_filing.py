@@ -153,19 +153,15 @@ async def retrieve_case_tracking_id(clientref, session, headers):
         casenum = search["ExistingCases"][0]["CaseNumber"]
         return caseid, casenum
 
-async def open_case(caseid, casenum, session, headers):
-    data = {'caseTrackingId': caseid, 'courtName': 'lasc', 'caseNumber': casenum, 'apiType': '1'}
-    async with session.get('https://integrated.infotrack.com/CA/CourtFiling/ExistingCase/New', headers=headers,
-                            data=data, ssl=ssl_context) as response:
-        testopen_case = await response.text()
-        take_json_case_info = regex.search(r'\{"TylerExistingCaseModel":.*,"OneLegalExistingCaseModel":null,',
-                                           str(testopen_case))
-        if not take_json_case_info:
-            return "no case"
-        json_case_info = take_json_case_info.group().replace(',"OneLegalExistingCaseModel":null,', '}')
-        case_info = json.loads(json_case_info)
-        return case_info
-
+async def open_case(caseid, casenum, session, headers):            
+    params = {'apiType': '1', 'courtName': 'lasc', 'caseNumber': casenum, 'state': 'CA'}
+    async with session.get('https://search.infotrack.com/secure/api/courtfiling/existing-case', headers=headers,
+                            params=params, ssl=ssl_context) as response:
+                                case_info = await response.json(content_type=None)
+                                if not case_info:
+                                    return "no case"
+                                return case_info
+                                
 async def scrape_case_info(mapping_url, clientref, session, headers):
     result = await login_to_efile_CA(mapping_url, session)
     if result == 'fail':
