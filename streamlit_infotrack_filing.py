@@ -179,7 +179,8 @@ async def search_case_number(fileids, headers):
     clientref = search_casenumber.upper()
     lawyerdetail, courtdetails, lawyers = update_case_details()
     async with aiohttp.ClientSession() as session:
-        mapping_url = await mapping(lawyerdetail, courtdetails, lawyers, clientref, retailref, fileids, headers, session)
+        #mapping_url = await mapping(lawyerdetail, courtdetails, lawyers, clientref, retailref, fileids, headers, session)
+        mapping_url = f"https://search.infotrack.com/secure/api/courtfiling/existing-case?apiType=1&courtName=lasc&caseNumber={clientref}&state=CA"
         st.session_state.mapping_url = mapping_url
         caseid, casenum, case_info = await scrape_case_info(mapping_url, clientref, session, headers)
         if casenum == 'fail':
